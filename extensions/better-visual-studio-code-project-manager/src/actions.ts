@@ -16,36 +16,98 @@ export function isGitRepo(path: string): boolean {
   return result;
 }
 
-/** Launch the git TUI (lazygit etc.) inside Terminal.app at the project root. */
+type TerminalKind = "terminal-app" | "kitty" | "iterm2" | "unknown";
+
+function detectTerminal(appPath: string | undefined): TerminalKind {
+  const p = (appPath ?? "").toLowerCase();
+  if (p.endsWith("/terminal.app")) return "terminal-app";
+  if (p.endsWith("/kitty.app")) return "kitty";
+  if (p.endsWith("/iterm.app")) return "iterm2";
+  return "unknown";
+}
+
+function run(file: string, args: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+  return new Promise((resolve, reject) =>
+    execFile(file, args, env ? { env } : {}, (err) => (err ? reject(err) : resolve())),
+  );
+}
+
+/** Raycast inherits macOS's modern ICU LC_ALL string (e.g. en_US@rg=dkzzzz-u-hc-…) which
+ * bash/zsh can't parse. Override with a clean UTF-8 locale when spawning terminals. */
+function cleanEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, LC_ALL: "en_US.UTF-8", LANG: process.env.LANG || "en_US.UTF-8" };
+}
+
+function userShell(): string {
+  return process.env.SHELL || "/bin/zsh";
+}
+
+/** Launch the git TUI (lazygit etc.) inside the configured terminal at the project root. */
 export async function openInGitClient(
   rootPath: string,
   gitClientCmd: string,
   terminalAppPath: string | undefined,
 ): Promise<void> {
-  const isTerminalApp = (terminalAppPath ?? "").toLowerCase().endsWith("/terminal.app");
-  if (!isTerminalApp) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Lazygit launcher requires Terminal.app",
-      message: "Falling back to opening the folder in the configured terminal.",
-    });
-    if (terminalAppPath) {
-      await new Promise<void>((resolve, reject) =>
-        execFile("/usr/bin/open", ["-a", terminalAppPath, rootPath], (err) => (err ? reject(err) : resolve())),
-      );
-    }
-    return;
-  }
+  const kind = detectTerminal(terminalAppPath);
 
-  const shellCmd = `cd ${shellQuote(rootPath)} && ${gitClientCmd}`;
-  const script = `tell application "Terminal"
+  switch (kind) {
+    case "terminal-app": {
+      const shellCmd = `cd ${shellQuote(rootPath)} && ${gitClientCmd}`;
+      const script = `tell application "Terminal"
 activate
 do script ${applescriptQuote(shellCmd)}
 end tell`;
+      await run("/usr/bin/osascript", ["-e", script]);
+      return;
+    }
 
-  await new Promise<void>((resolve, reject) =>
-    execFile("/usr/bin/osascript", ["-e", script], (err) => (err ? reject(err) : resolve())),
-  );
+    case "kitty": {
+      // --single-instance + --instance-group pins Raycast-launched windows to a dedicated
+      // kitty process, separate from the user's main kitty — so it can be configured to quit
+      // when its last window closes without affecting the main instance.
+      // -o macos_quit_when_last_window_closed=yes applies only to this instance.
+      // cleanEnv() strips macOS's broken LC_ALL so zsh rc files don't spew locale warnings.
+      const kittyBin = `${terminalAppPath}/Contents/MacOS/kitty`;
+      await run(
+        kittyBin,
+        [
+          "--single-instance",
+          "--instance-group=raycast-better-vscode-pm",
+          "-o",
+          "macos_quit_when_last_window_closed=yes",
+          "--directory",
+          rootPath,
+          userShell(),
+          "-lic",
+          gitClientCmd,
+        ],
+        cleanEnv(),
+      );
+      return;
+    }
+
+    case "iterm2": {
+      // iTerm2 exposes the same AppleScript surface as Terminal.app via `create window`.
+      const shellCmd = `cd ${shellQuote(rootPath)} && ${gitClientCmd}`;
+      const script = `tell application "iTerm"
+activate
+create window with default profile command ${applescriptQuote(shellCmd)}
+end tell`;
+      await run("/usr/bin/osascript", ["-e", script]);
+      return;
+    }
+
+    default:
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Unsupported terminal",
+        message: `No launcher for ${terminalAppPath ?? "(unset)"}. Supported: Terminal.app, kitty, iTerm2.`,
+      });
+      if (terminalAppPath) {
+        await run("/usr/bin/open", ["-a", terminalAppPath, rootPath]);
+      }
+      return;
+  }
 }
 
 type Remote = { url?: string };
