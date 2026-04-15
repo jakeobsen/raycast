@@ -17,6 +17,9 @@ make help                   # list targets and discovered extensions
 make deps                   # npm install for every extension
 make dev-hello-world        # register hello-world with Raycast + live reload
 # → open Raycast, search for "Say Hello", hit Return to see the HUD
+
+make dev-better-visual-studio-code-project-manager
+# → open Raycast, search for "Search Project Manager"
 ```
 
 Press Ctrl+C to stop the dev server.
@@ -55,6 +58,13 @@ Raycast's scaffolding is GUI-driven — there is no `npm init raycast-extension`
 
 Alternatively, copy `extensions/hello-world/` to `extensions/<new-name>/` and edit `package.json` — rename `name`, `title`, and update `commands`.
 
+## Extensions in this repo
+
+- **[hello-world](extensions/hello-world/)** — minimal seed used as a template for new extensions.
+- **[better-visual-studio-code-project-manager](extensions/better-visual-studio-code-project-manager/)** — fork of the official Raycast [`visual-studio-code-project-manager`](https://github.com/raycast/extensions/tree/main/extensions/visual-studio-code-project-manager) extension. Same feature set, plus:
+  - **Open in lazygit** (or any TUI git client) inside Terminal.app — replaces the upstream GUI git-client action.
+  - **Open Git Remote in Browser** — opens the repo's `origin` on GitHub/GitLab/etc.
+
 ## "Install into Raycast" — what's happening
 
 Raycast has no standalone `install` CLI and no `raycast://` deep link for programmatic local import. The Makefile uses `ray develop` (`make dev-<name>`) to both register an extension with Raycast and watch for changes. While the dev server runs, the extension and its commands are available in Raycast. Stop it with Ctrl+C. For a production compile (no dev server), run `make build-<name>`.
@@ -67,13 +77,14 @@ Raycast has no standalone `install` CLI and no `raycast://` deep link for progra
 ├── README.md
 ├── .gitignore
 └── extensions/
-    └── hello-world/            example extension — deletable
-        ├── package.json
-        ├── tsconfig.json
-        ├── src/say-hello.ts
-        ├── assets/extension-icon.png
-        ├── README.md
-        └── CHANGELOG.md
+    ├── hello-world/                                   example extension — deletable
+    │   ├── package.json
+    │   ├── tsconfig.json
+    │   ├── src/say-hello.ts
+    │   ├── assets/extension-icon.png
+    │   ├── README.md
+    │   └── CHANGELOG.md
+    └── better-visual-studio-code-project-manager/     fork of the upstream Raycast extension with lazygit + git-remote-in-browser actions
 ```
 
 No root `package.json`, no npm/pnpm/yarn workspaces. Each extension has its own `node_modules`. This is intentional — every extension stays self-contained and portable.
