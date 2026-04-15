@@ -166,7 +166,6 @@ function ProjectListItem({
   const prettyPath = tildify(rootPath);
   const subtitle = dirname(prettyPath);
   const remote = isRemoteProject(rootPath);
-  const gitRepo = !remote && isGitRepo(rootPath);
   const gitClientCmd = preferences.gitClientApp || "lazygit";
 
   return (
@@ -208,12 +207,16 @@ function ProjectListItem({
                 onOpen={() => visitItem(item)}
               />
             )}
-            {gitRepo && (
+            {!remote && (
               <Action
                 title={`Open in ${gitClientCmd}`}
                 icon={Icon.Terminal}
                 shortcut={{ modifiers: ["cmd"], key: "g" }}
                 onAction={async () => {
+                  if (!isGitRepo(rootPath)) {
+                    await showToast({ style: Toast.Style.Failure, title: "Not a git repository" });
+                    return;
+                  }
                   visitItem(item);
                   try {
                     await openInGitClient(rootPath, gitClientCmd, terminalPath || undefined);
@@ -228,12 +231,16 @@ function ProjectListItem({
                 }}
               />
             )}
-            {gitRepo && (
+            {!remote && (
               <Action
                 title="Open Git Remote in Browser"
                 icon={Icon.Link}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "g" }}
                 onAction={async () => {
+                  if (!isGitRepo(rootPath)) {
+                    await showToast({ style: Toast.Style.Failure, title: "Not a git repository" });
+                    return;
+                  }
                   visitItem(item);
                   await openGitRemote(rootPath);
                 }}

@@ -4,9 +4,16 @@ import { existsSync } from "fs";
 import parseGitConfig from "parse-git-config";
 import { applescriptQuote, shellQuote } from "./util";
 
+const gitRepoCache = new Map<string, boolean>();
+
 export function isGitRepo(path: string): boolean {
-  const gitConfig = parseGitConfig.sync({ cwd: path, path: ".git/config", expandKeys: true });
-  return !!gitConfig.core;
+  const cached = gitRepoCache.get(path);
+  if (cached !== undefined) return cached;
+  // Cheap existence check — .git is a directory for normal repos, a file for worktrees;
+  // either way it exists. Avoids a full INI parse per list item.
+  const result = existsSync(`${path}/.git`);
+  gitRepoCache.set(path, result);
+  return result;
 }
 
 /** Launch the git TUI (lazygit etc.) inside Terminal.app at the project root. */
