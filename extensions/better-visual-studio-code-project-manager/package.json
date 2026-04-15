@@ -1,0 +1,100 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "better-visual-studio-code-project-manager",
+  "title": "Better Visual Studio Code",
+  "description": "Search and open projects from Visual Studio Code Project Manager",
+  "icon": "command-icon.png",
+  "author": "jakeobsen",
+  "license": "MIT",
+  "categories": ["Developer Tools"],
+  "commands": [
+    {
+      "name": "search-projects",
+      "title": "Search Project Manager",
+      "description": "Search projects from projects.json and open them.",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "groupProjectsByTag",
+      "type": "checkbox",
+      "required": false,
+      "title": "Group Projects...",
+      "default": true,
+      "label": "by tag",
+      "description": "Groups projects by tag instead of just showing"
+    },
+    {
+      "name": "hideProjectsWithoutTag",
+      "type": "checkbox",
+      "required": false,
+      "title": "Hide Projects...",
+      "default": false,
+      "label": "without tag",
+      "description": "Hide projects without tag"
+    },
+    {
+      "name": "hideProjectsNotEnabled",
+      "type": "checkbox",
+      "required": false,
+      "default": false,
+      "label": "not enabled",
+      "description": "Hide projects with enabled set to false"
+    },
+    {
+      "name": "vscodeApp",
+      "type": "appPicker",
+      "required": false,
+      "title": "VSCode",
+      "default": "/Applications/Visual Studio Code.app",
+      "description": "Path to the VSCode app"
+    },
+    {
+      "name": "projectManagerDataPath",
+      "type": "directory",
+      "required": false,
+      "title": "Projects Location",
+      "description": "Directory containing projects.json (and optional projects_cache_*.json). Leave blank to use VSCode Project Manager's default storage location."
+    },
+    {
+      "name": "terminalApp",
+      "type": "appPicker",
+      "required": false,
+      "default": "/System/Applications/Utilities/Terminal.app",
+      "title": "Terminal App Path",
+      "description": "Path to the terminal app (Lazygit launcher assumes Terminal.app)"
+    },
+    {
+      "name": "gitClientApp",
+      "type": "textfield",
+      "required": false,
+      "default": "lazygit",
+      "title": "Git Client Command",
+      "description": "Shell command run inside the terminal at the project root (e.g. lazygit, gitui, tig)"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.12",
+    "@raycast/utils": "^1.17.0",
+    "parse-git-config": "^3.0.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "^22.14.0",
+    "@types/parse-git-config": "^3.0.4",
+    "@types/react": "^18.3.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.8.3",
+    "react": "^18.3.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --relaxed --fix",
+    "lint": "ray lint --relaxed",
+    "lint-publish": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
