@@ -20,6 +20,9 @@ make dev-hello-world        # register hello-world with Raycast + live reload
 
 make dev-better-visual-studio-code-project-manager
 # → open Raycast, search for "Search Project Manager"
+
+make dev-scratch
+# → open Raycast, search for "Create Scratch" or "Scratch Folders"
 ```
 
 Press Ctrl+C to stop the dev server.
@@ -64,6 +67,9 @@ Alternatively, copy `extensions/hello-world/` to `extensions/<new-name>/` and ed
 - **[better-visual-studio-code-project-manager](extensions/better-visual-studio-code-project-manager/)** — fork of the official Raycast [`visual-studio-code-project-manager`](https://github.com/raycast/extensions/tree/main/extensions/visual-studio-code-project-manager) extension. Same feature set, plus:
   - **Open in lazygit** (or any TUI git client) inside Terminal.app — replaces the upstream GUI git-client action.
   - **Open Git Remote in Browser** — opens the repo's `origin` on GitHub/GitLab/etc.
+- **[scratch](extensions/scratch/)** — disposable working folders.
+  - **Create Scratch** — makes `~/scratch/<random-name>` (optionally prefixed with a label you type) and opens it in VS Code.
+  - **Scratch Folders** — browses them in active/stale sections (staleness = newest mtime anywhere inside), with the same shortcuts as the VS Code extension above (`⌘T` terminal, `⌘G` lazygit, `⌘⇧G` git remote, `⌘F` Finder, `⌘O` open with, `⌘.`/`⌘⇧.` copy) plus `⌘N` new folder, `⌃X` remove, and `⌘⇧X` to trash everything untouched for 7+ days.
 
 ## "Install into Raycast" — what's happening
 
@@ -84,7 +90,8 @@ Raycast has no standalone `install` CLI and no `raycast://` deep link for progra
     │   ├── assets/extension-icon.png
     │   ├── README.md
     │   └── CHANGELOG.md
-    └── better-visual-studio-code-project-manager/     fork of the upstream Raycast extension with lazygit + git-remote-in-browser actions
+    ├── better-visual-studio-code-project-manager/     fork of the upstream Raycast extension with lazygit + git-remote-in-browser actions
+    └── scratch/                                       disposable ~/scratch folders + stale-folder cleanup
 ```
 
 No root `package.json`, no npm/pnpm/yarn workspaces. Each extension has its own `node_modules`. This is intentional — every extension stays self-contained and portable.
