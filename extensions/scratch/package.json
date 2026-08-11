@@ -1,0 +1,131 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "scratch",
+  "title": "Scratch",
+  "description": "Create disposable scratch folders and clean up the ones you have stopped touching.",
+  "icon": "extension-icon.png",
+  "author": "jakeobsen",
+  "license": "MIT",
+  "categories": ["Developer Tools"],
+  "commands": [
+    {
+      "name": "create-scratch",
+      "title": "Create Scratch",
+      "description": "Creates a randomly named folder under the scratch root and opens it in your editor.",
+      "mode": "no-view",
+      "icon": "extension-icon.png",
+      "arguments": [
+        {
+          "name": "label",
+          "type": "text",
+          "placeholder": "label (optional)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "scratch-folders",
+      "title": "Scratch Folders",
+      "description": "Browse scratch folders, open them, and clean up the ones untouched for the configured number of days.",
+      "mode": "view",
+      "icon": "folders-icon.png"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "scratchRoot",
+      "type": "directory",
+      "required": false,
+      "title": "Scratch Root",
+      "description": "Directory that holds scratch folders. Leave blank to use ~/scratch."
+    },
+    {
+      "name": "editorApp",
+      "type": "appPicker",
+      "required": false,
+      "default": "/Applications/Visual Studio Code.app",
+      "title": "Editor",
+      "description": "App the new scratch folder is opened in."
+    },
+    {
+      "name": "openInEditor",
+      "type": "checkbox",
+      "required": false,
+      "default": true,
+      "title": "After Creating...",
+      "label": "open in editor",
+      "description": "Uncheck to only create the folder and copy its path to the clipboard."
+    },
+    {
+      "name": "staleDays",
+      "type": "textfield",
+      "required": false,
+      "default": "7",
+      "title": "Stale After (Days)",
+      "description": "A scratch folder counts as stale when nothing inside it has been modified for this many days."
+    },
+    {
+      "name": "nameStyle",
+      "type": "dropdown",
+      "required": false,
+      "default": "words",
+      "title": "Folder Name Style",
+      "description": "Shape of the generated folder name.",
+      "data": [
+        { "title": "brave-otter", "value": "words" },
+        { "title": "brave-otter-a1b2", "value": "words-suffix" },
+        { "title": "2026-08-11-brave-otter", "value": "date-words" },
+        { "title": "scratch-8f3a2c4d", "value": "hex" }
+      ]
+    },
+    {
+      "name": "terminalApp",
+      "type": "appPicker",
+      "required": false,
+      "default": "/System/Applications/Utilities/Terminal.app",
+      "title": "Terminal App",
+      "description": "Terminal opened by ⌘T, and used to host the git client (Terminal.app, kitty, and iTerm2 are supported)."
+    },
+    {
+      "name": "gitClientApp",
+      "type": "textfield",
+      "required": false,
+      "default": "lazygit",
+      "title": "Git Client Command",
+      "description": "Shell command run inside the terminal at the folder root by ⌘G (e.g. lazygit, gitui, tig)."
+    },
+    {
+      "name": "deleteMode",
+      "type": "dropdown",
+      "required": false,
+      "default": "trash",
+      "title": "Delete Mode",
+      "description": "Trash is recoverable from Finder; permanent delete is not.",
+      "data": [
+        { "title": "Move to Trash", "value": "trash" },
+        { "title": "Delete permanently", "value": "permanent" }
+      ]
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.12",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "^22.14.0",
+    "@types/react": "^18.3.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.8.3",
+    "react": "^18.3.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --relaxed --fix",
+    "lint": "ray lint --relaxed",
+    "lint-publish": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
