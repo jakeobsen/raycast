@@ -31,18 +31,20 @@ You can close Raycast mid-run. Claude keeps going in the background, and the ans
 
 | Shortcut | Action |
 |---|---|
-| `↵` | Open the task's link (ticket, thread, canvas, email) |
+| `↵` | Open the task's link (ticket, thread, canvas, email), or join the meeting |
 | `⌘.` | Copy link |
 | `⌘⇧.` | Copy task (title, reason, link) |
 | `⌘R` | Ask again |
 | `⌘E` | Edit workflow |
 | `⌃X` | Stop the current run |
 
-The detail pane shows which workflow was used, the model that did the work (read from usage data, not self-reported), how long it took and what it cost.
+When your next meeting starts within *Show Meetings Starting Within* (default 60 min), it's shown at the top with a live countdown until it ends. A virtual meeting's `↵` joins it (Zoom, Meet or Teams link); an in-person one shows the time, place, attendees and what it's about.
+
+Each task's detail shows only that task: what, why, where it came from, and its link.
 
 ## Read-only by construction
 
-Claude gets no built-in tools (`--tools ""`) and only MCP read tools: calendar list/get, Slack read/search/profile, Jira search/get and site lookup, Gmail search/get thread. Every write tool on those connectors (send, reply, post, create, edit, transition, trash, label, …) is explicitly denied with `--disallowedTools`, because Claude Code settings can pre-approve some of them and `--permission-mode dontAsk` would otherwise let those through. Denied tools are also hidden from the model. Any refused tool call is listed in the detail pane.
+Claude gets no built-in tools (`--tools ""`) and only MCP read tools: calendar list/get, Slack read/search/profile, Jira search/get and site lookup, Gmail search/get thread. Every write tool on those connectors (send, reply, post, create, edit, transition, trash, label, …) is explicitly denied with `--disallowedTools`, because Claude Code settings can pre-approve some of them and `--permission-mode dontAsk` would otherwise let those through. Denied tools are also hidden from the model. Any refused tool call is recorded in the run's `result.json`.
 
 For debugging, each run's JSON is kept for 7 days in `history/<start time>-<outcome>/` in the extension's support folder: `stream.jsonl` (Claude's full event stream), `meta.json`, and `result.json` or `error.json`. Older runs are deleted whenever a run ends. The stream contains raw message, mail and ticket text, so it stays on this machine and nothing keeps it longer.
 
@@ -53,6 +55,7 @@ For debugging, each run's JSON is kept for 7 days in `history/<start time>-<outc
 | Model | Opus 5.5 | Also Sonnet 5.5 (faster, cheaper, cut corners in side-by-side runs) and Fable 5.1. |
 | Effort | Medium | Low / Medium / High / Extra High. |
 | Reuse Answer For (Minutes) | `30` | `0` asks every time the command opens. |
+| Show Meetings Starting Within (Minutes) | `60` | Your next meeting appears at the top once it's this close, and stays until it ends. |
 | Resolved Reactions | `white_check_mark, heavy_check_mark` | Slack reactions that mark a request done, inserted at `{{resolvedReactions}}`. Comma-separated, colons optional. |
 | Claude CLI Path | `~/.local/bin/claude` | Raycast doesn't see your shell `PATH`, so this has to be a real path. |
 

@@ -9,9 +9,22 @@ export type Task = {
   url: string;
 };
 
+export type Meeting = {
+  title: string;
+  /** ISO 8601 with offset, straight from the calendar event. */
+  start: string;
+  end: string;
+  /** Video call link when the meeting is virtual; "" when it's in person. */
+  url: string;
+  location: string;
+  attendees: string[];
+  notes: string;
+};
+
 export type Answer = {
   onBau: boolean;
-  nextMeeting: string;
+  /** Timed meetings that start later today, soonest first. Missing on answers saved before meetings existed. */
+  upcomingMeetings?: Meeting[];
   next: Task;
   alternatives: Task[];
   flags: string[];
@@ -29,17 +42,32 @@ const TASK_SCHEMA = {
   required: ["title", "why", "source", "url"],
 };
 
+const MEETING_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    title: { type: "string" },
+    start: { type: "string" },
+    end: { type: "string" },
+    url: { type: "string" },
+    location: { type: "string" },
+    attendees: { type: "array", items: { type: "string" } },
+    notes: { type: "string" },
+  },
+  required: ["title", "start", "end", "url", "location", "attendees", "notes"],
+};
+
 const ANSWER_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
     onBau: { type: "boolean" },
-    nextMeeting: { type: "string" },
+    upcomingMeetings: { type: "array", items: MEETING_SCHEMA },
     next: TASK_SCHEMA,
     alternatives: { type: "array", items: TASK_SCHEMA },
     flags: { type: "array", items: { type: "string" } },
   },
-  required: ["onBau", "nextMeeting", "next", "alternatives", "flags"],
+  required: ["onBau", "upcomingMeetings", "next", "alternatives", "flags"],
 };
 
 /** The claude.ai connectors the prompt depends on, by the name `system/init` reports them under. */
@@ -233,9 +261,16 @@ ${workflow}
 
 Then answer:
 - onBau: whether I'm on BAU today, as the steps above define it (false if they don't say).
-- nextMeeting: my next meeting that starts later today ("HH:MM Title"), or "none".
+- upcomingMeetings: my timed meetings that start later today, soonest first, at most 3.
+  Leave out all-day events and meetings I declined. For each:
+  - title; start and end as ISO 8601 with offset, copied from the event.
+  - url: the video call link (conference data, hangoutLink, or a Zoom, Meet or Teams
+    link in the location or description), or "" if the meeting is in person.
+  - location: the room or address, or "".
+  - attendees: the other attendees' names, at most 8.
+  - notes: one sentence on what it's about if the event says, otherwise "".
 - next: ONE task. Order: blocking someone > time-sensitive > already in progress > new
-  work. Fit it to the time before nextMeeting.
+  work. Fit it to the time before the first upcoming meeting.
 - alternatives: up to 3 more.
 - url: a clickable link to the ticket, thread, canvas or email. why: one sentence.
 - flags: only things I should act on or know about, such as promises I made, overdue or

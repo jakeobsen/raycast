@@ -1,10 +1,10 @@
 import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatAge, formatCost, formatDuration, formatElapsed, isLink, modelName } from "./lib/format";
+import { formatAge, formatElapsed, formatStartsIn, formatTimeRange, isLink, modelName } from "./lib/format";
 import { EditWorkflow } from "./edit-workflow";
 import { getPreferences } from "./lib/prefs";
-import { renderWorkflow, type Task, type TaskSource, type WorkflowSource } from "./lib/prompt";
-import { loadError, loadResult, RunWatcher, startRun, stopRun, type RunProgress, type StoredResult } from "./lib/run";
+import { renderWorkflow, type Meeting, type Task, type TaskSource, type WorkflowSource } from "./lib/prompt";
+import { loadError, loadResult, RunWatcher, startRun, stopRun, type RunProgress } from "./lib/run";
 import { loadSavedWorkflow } from "./lib/workflow-store";
 
 /** The stream file is cheap to tail, and a second is fine-grained enough for a run that takes a minute. */
@@ -26,6 +26,54 @@ const WORKFLOW_LABELS: Record<WorkflowSource, string> = {
   saved: "Saved in Raycast",
   example: "Built-in example (⌘E to set yours)",
 };
+
+/**
+ * Details are written into the markdown rather than Raycast's metadata panel: the panel is
+ * pinned to the bottom with its own scroll, while markdown makes the whole right half one
+ * scrolling page.
+ */
+function detailLines(fields: [label: string, value: string | undefined][]): string {
+  return fields
+    .filter(([, value]) => value)
+    .map(([label, value]) => `**${label}**  ${value}`)
+    .join("\n\n");
+}
+
+/** "[example.slack.com/archives/…](<https://…>)": readable text, the full URL as the target. */
+function markdownLink(url: string): string {
+  const bare = url.replace(/^https?:\/\//, "");
+  const text = (bare.length > 60 ? `${bare.slice(0, 57)}…` : bare).replace(/[[\]]/g, "\\$&");
+  return `[${text}](<${url}>)`;
+}
+
+/** Keeps "in 9 min" honest while the list sits open between runs. */
+const CLOCK_TICK_MS = 30_000;
+
+type TimedMeeting = Meeting & { startMs: number; endMs: number };
+
+/** Meetings with times we can read, soonest first. Answers saved before meetings existed have none. */
+function timedMeetings(meetings: Meeting[] | undefined): TimedMeeting[] {
+  return (meetings ?? [])
+    .map((meeting) => ({ ...meeting, startMs: Date.parse(meeting.start), endMs: Date.parse(meeting.end) }))
+    .filter((meeting) => Number.isFinite(meeting.startMs) && Number.isFinite(meeting.endMs))
+    .sort((a, b) => a.startMs - b.startMs);
+}
+
+/** The meeting to show at the top: not over yet, and starting within the window (or already started). */
+function soonMeeting(meetings: TimedMeeting[], nowMs: number, windowMinutes: number): TimedMeeting | undefined {
+  return meetings.find((meeting) => meeting.endMs > nowMs && meeting.startMs - nowMs <= windowMinutes * 60_000);
+}
+
+function meetingDetails(meeting: TimedMeeting): string {
+  return [
+    meeting.title,
+    formatTimeRange(meeting.startMs, meeting.endMs),
+    meeting.url || meeting.location,
+    meeting.attendees.length > 0 ? `With ${meeting.attendees.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 export default function Command() {
   const prefs = useMemo(getPreferences, []);
@@ -87,6 +135,13 @@ export default function Command() {
     return () => clearInterval(timer);
   }, [running, refresh]);
 
+  // Between runs nothing polls, so tick the clock for meeting countdowns.
+  useEffect(() => {
+    if (running) return;
+    const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(timer);
+  }, [running]);
+
   // Opening the command is the request: ask straight away unless a recent answer is on hand
   // or a run is already going.
   useEffect(() => {
@@ -118,30 +173,57 @@ export default function Command() {
     );
   }
 
-  function runMetadata(stored: StoredResult) {
+  function meetingItem(meeting: TimedMeeting) {
+    const virtual = isLink(meeting.url);
+    const when = `${formatTimeRange(meeting.startMs, meeting.endMs)} · ${formatStartsIn(meeting.startMs, now)}`;
     return (
-      <>
-        <List.Item.Detail.Metadata.Separator />
-        <List.Item.Detail.Metadata.Label title="On BAU" text={stored.answer.onBau ? "Yes" : "No"} />
-        <List.Item.Detail.Metadata.Label title="Next Meeting" text={stored.answer.nextMeeting} />
-        <List.Item.Detail.Metadata.Separator />
-        <List.Item.Detail.Metadata.Label title="Workflow" text={WORKFLOW_LABELS[stored.workflow] ?? stored.workflow} />
-        <List.Item.Detail.Metadata.Label title="Model" text={modelName(stored.model)} />
-        <List.Item.Detail.Metadata.Label title="Took" text={formatDuration(stored.durationMs)} />
-        <List.Item.Detail.Metadata.Label title="Cost" text={formatCost(stored.costUsd)} />
-        <List.Item.Detail.Metadata.Label title="Asked" text={formatAge(stored.finishedAt, now)} />
-        {stored.denied.length > 0 && (
-          <List.Item.Detail.Metadata.Label
-            title="Refused Tool Calls"
-            text={stored.denied.join(", ")}
-            icon={{ source: Icon.Warning, tintColor: Color.Red }}
+      <List.Item
+        icon={{ source: virtual ? Icon.Video : Icon.TwoPeople, tintColor: Color.Green }}
+        title={meeting.title}
+        subtitle={when}
+        detail={
+          <List.Item.Detail
+            markdown={[
+              `## ${meeting.title}`,
+              `**${when}**`,
+              meeting.notes,
+              "---",
+              detailLines([
+                ["Join", virtual ? markdownLink(meeting.url) : undefined],
+                [virtual ? "Location" : "Where", meeting.location || (virtual ? undefined : "No location given")],
+                ["With", meeting.attendees.join(", ")],
+              ]),
+            ]
+              .filter(Boolean)
+              .join("\n\n")}
           />
-        )}
-      </>
+        }
+        actions={
+          <ActionPanel>
+            <ActionPanel.Section>
+              {virtual && <Action.OpenInBrowser title="Join Meeting" icon={Icon.Video} url={meeting.url} />}
+              {virtual && (
+                <Action.CopyToClipboard
+                  title="Copy Meeting Link"
+                  content={meeting.url}
+                  shortcut={Keyboard.Shortcut.Common.Pin}
+                />
+              )}
+              <Action.CopyToClipboard
+                title="Copy Meeting Details"
+                content={meetingDetails(meeting)}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
+              />
+            </ActionPanel.Section>
+            {commonActions()}
+          </ActionPanel>
+        }
+      />
     );
   }
 
-  function taskItem(task: Task, stored: StoredResult, key: string) {
+  /** A task's detail shows only the task: what, why, where it came from and its link. */
+  function taskItem(task: Task, key: string) {
     const source = sourceOf(task);
     return (
       <List.Item
@@ -150,16 +232,15 @@ export default function Command() {
         title={task.title}
         detail={
           <List.Item.Detail
-            markdown={`## ${task.title}\n\n${task.why}`}
-            metadata={
-              <List.Item.Detail.Metadata>
-                <List.Item.Detail.Metadata.TagList title="Source">
-                  <List.Item.Detail.Metadata.TagList.Item text={source.label} color={source.color} />
-                </List.Item.Detail.Metadata.TagList>
-                {isLink(task.url) && <List.Item.Detail.Metadata.Link title="Link" text={task.url} target={task.url} />}
-                {runMetadata(stored)}
-              </List.Item.Detail.Metadata>
-            }
+            markdown={[
+              `## ${task.title}`,
+              task.why,
+              "---",
+              detailLines([
+                ["Source", source.label],
+                ["Link", isLink(task.url) ? markdownLink(task.url) : undefined],
+              ]),
+            ].join("\n\n")}
           />
         }
         actions={
@@ -181,9 +262,8 @@ export default function Command() {
   }
 
   const answer = result?.answer;
-  const summary = result
-    ? `${answer?.onBau ? "On BAU" : "Not on BAU"} · ${modelName(result.model)} · ${formatAge(result.finishedAt, now)}`
-    : undefined;
+  const meetings = timedMeetings(answer?.upcomingMeetings);
+  const meeting = soonMeeting(meetings, now, prefs.meetingWindowMinutes);
 
   return (
     <List
@@ -200,27 +280,25 @@ export default function Command() {
             subtitle={`${progress.steps} step${progress.steps === 1 ? "" : "s"} · ${formatElapsed(now - progress.startedAt)}`}
             detail={
               <List.Item.Detail
-                markdown={
-                  "Claude is reading your calendar, Jira, Slack and Gmail with read-only tools.\n\n" +
-                  "You can close Raycast. The run keeps going, and the answer will be here next time you open **Next Task**." +
-                  (progress.workflow === "example"
-                    ? "\n\nNo workflow saved yet, so this run uses the built-in example. Press **⌘E** to set your own."
-                    : "")
-                }
-                metadata={
-                  <List.Item.Detail.Metadata>
-                    <List.Item.Detail.Metadata.Label title="Model" text={modelName(prefs.model)} />
-                    <List.Item.Detail.Metadata.Label title="Effort" text={prefs.effort} />
-                    <List.Item.Detail.Metadata.Label title="Workflow" text={WORKFLOW_LABELS[progress.workflow]} />
-                    {progress.unknownPlaceholders.length > 0 && (
-                      <List.Item.Detail.Metadata.Label
-                        title="Unknown Placeholders"
-                        text={progress.unknownPlaceholders.join(", ")}
-                        icon={{ source: Icon.Warning, tintColor: Color.Red }}
-                      />
-                    )}
-                  </List.Item.Detail.Metadata>
-                }
+                markdown={[
+                  "Claude is reading your calendar, Jira, Slack and Gmail with read-only tools.",
+                  "You can close Raycast. The run keeps going, and the answer will be here next time you open **Next Task**.",
+                  progress.workflow === "example"
+                    ? "No workflow saved yet, so this run uses the built-in example. Press **⌘E** to set your own."
+                    : "",
+                  "---",
+                  detailLines([
+                    ["Model", modelName(prefs.model)],
+                    ["Effort", prefs.effort],
+                    ["Workflow", WORKFLOW_LABELS[progress.workflow]],
+                    [
+                      "Unknown placeholders",
+                      progress.unknownPlaceholders.length > 0 ? progress.unknownPlaceholders.join(", ") : undefined,
+                    ],
+                  ]),
+                ]
+                  .filter(Boolean)
+                  .join("\n\n")}
               />
             }
             actions={<ActionPanel>{commonActions()}</ActionPanel>}
@@ -247,12 +325,15 @@ export default function Command() {
 
       {result && answer && (
         <>
-          <List.Section title="Next" subtitle={summary}>
-            {taskItem(answer.next, result, "next")}
-          </List.Section>
+          {meeting && (
+            <List.Section title="Meeting" subtitle={formatStartsIn(meeting.startMs, now)}>
+              {meetingItem(meeting)}
+            </List.Section>
+          )}
+          <List.Section title="Next">{taskItem(answer.next, "next")}</List.Section>
           {answer.alternatives.length > 0 && (
             <List.Section title="Alternatives">
-              {answer.alternatives.map((task, index) => taskItem(task, result, `alternative-${index}`))}
+              {answer.alternatives.map((task, index) => taskItem(task, `alternative-${index}`))}
             </List.Section>
           )}
           {answer.flags.length > 0 && (

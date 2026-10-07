@@ -9,6 +9,7 @@ type RawPreferences = {
   model?: Model;
   effort?: Effort;
   reuseMinutes?: string;
+  meetingWindowMinutes?: string;
   resolvedEmojis?: string;
   claudePath?: string;
 };
@@ -17,11 +18,19 @@ export type NextTaskPreferences = {
   model: Model;
   effort: Effort;
   reuseMinutes: number;
+  meetingWindowMinutes: number;
   resolvedEmojis: string[];
   claudePath: string;
 };
 
 export const DEFAULT_REUSE_MINUTES = 30;
+export const DEFAULT_MEETING_WINDOW_MINUTES = 60;
+
+/** Blank or garbage falls back; 0 is kept as a legitimate answer. */
+function parseMinutes(input: string | undefined, fallback: number): number {
+  const parsed = Number.parseFloat((input ?? "").trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 /** Fallback for a blank Resolved Reactions preference. Team-specific emoji belong in the preference itself. */
 export const DEFAULT_RESOLVED_EMOJIS = ["white_check_mark", "heavy_check_mark"];
@@ -45,12 +54,11 @@ function resolvePath(input: string | undefined, fallback: string): string {
 
 export function getPreferences(): NextTaskPreferences {
   const prefs = getPreferenceValues<RawPreferences>();
-  const parsedMinutes = Number.parseFloat((prefs.reuseMinutes ?? "").trim());
   return {
     model: prefs.model ?? "claude-opus-5-5",
     effort: prefs.effort ?? "medium",
-    // 0 is a legitimate answer ("always ask"); only blank or garbage falls back.
-    reuseMinutes: Number.isFinite(parsedMinutes) && parsedMinutes >= 0 ? parsedMinutes : DEFAULT_REUSE_MINUTES,
+    reuseMinutes: parseMinutes(prefs.reuseMinutes, DEFAULT_REUSE_MINUTES),
+    meetingWindowMinutes: parseMinutes(prefs.meetingWindowMinutes, DEFAULT_MEETING_WINDOW_MINUTES),
     resolvedEmojis: parseEmojis(prefs.resolvedEmojis),
     claudePath: resolvePath(prefs.claudePath, "~/.local/bin/claude"),
   };

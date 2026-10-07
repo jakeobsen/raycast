@@ -53,6 +53,14 @@
       "description": "Opening the command within this many minutes of the last answer shows it instead of asking again. ⌘R always asks again."
     },
     {
+      "name": "meetingWindowMinutes",
+      "type": "textfield",
+      "required": false,
+      "default": "60",
+      "title": "Show Meetings Starting Within (Minutes)",
+      "description": "Your next meeting is shown at the top when it starts within this many minutes, and stays until it ends."
+    },
+    {
       "name": "resolvedEmojis",
       "type": "textfield",
       "required": false,

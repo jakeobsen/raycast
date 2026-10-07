@@ -33,6 +33,26 @@ export function formatCost(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+const clock = (ms: number) => {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+/** "16:00–16:25" in local time. */
+export function formatTimeRange(startMs: number, endMs: number): string {
+  return `${clock(startMs)}–${clock(endMs)}`;
+}
+
+/** "in 9 min", "in 1 h 20 min", "now", "started 3 min ago". */
+export function formatStartsIn(startMs: number, nowMs: number = Date.now()): string {
+  const minutes = Math.round((startMs - nowMs) / 60_000);
+  if (minutes === 0) return "now";
+  if (minutes < 0) return `started ${-minutes} min ago`;
+  if (minutes < 60) return `in ${minutes} min`;
+  const rest = minutes % 60;
+  return `in ${Math.floor(minutes / 60)} h${rest ? ` ${rest} min` : ""}`;
+}
+
 export function isLink(url: string): boolean {
   return /^https?:\/\//.test(url);
 }
