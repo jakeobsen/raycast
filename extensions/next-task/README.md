@@ -40,7 +40,7 @@ You can close Raycast mid-run. Claude keeps going in the background, and the ans
 
 When your next meeting starts within *Show Meetings Starting Within* (default 60 min), it's shown at the top with a live countdown until it ends. A virtual meeting's `↵` joins it (Zoom, Meet or Teams link); an in-person one shows the time, place, attendees and what it's about.
 
-Each task's detail shows only that task: what, why, where it came from, and its link.
+Each item carries the official icon of where `↵` takes you — Jira, Slack, Gmail or Google Calendar, judged from the link — and the right-hand side shows just the title and the reason. The icons are bundled, so nothing is fetched at runtime.
 
 ## Read-only by construction
 

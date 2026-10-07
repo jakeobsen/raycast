@@ -1,49 +1,47 @@
 import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatAge, formatElapsed, formatStartsIn, formatTimeRange, isLink, modelName } from "./lib/format";
+import { formatAge, formatElapsed, formatStartsIn, formatTimeRange, isLink } from "./lib/format";
 import { EditWorkflow } from "./edit-workflow";
 import { getPreferences } from "./lib/prefs";
-import { renderWorkflow, type Meeting, type Task, type TaskSource, type WorkflowSource } from "./lib/prompt";
+import { renderWorkflow, type Meeting, type Task, type TaskSource } from "./lib/prompt";
 import { loadError, loadResult, RunWatcher, startRun, stopRun, type RunProgress } from "./lib/run";
 import { loadSavedWorkflow } from "./lib/workflow-store";
 
 /** The stream file is cheap to tail, and a second is fine-grained enough for a run that takes a minute. */
 const POLL_MS = 1000;
 
-const SOURCES: Record<TaskSource, { label: string; icon: Icon; color: Color }> = {
-  bau: { label: "BAU", icon: Icon.Hammer, color: Color.Orange },
-  jira: { label: "Jira", icon: Icon.Ticket, color: Color.Blue },
-  slack: { label: "Slack", icon: Icon.Message, color: Color.Purple },
-  email: { label: "Email", icon: Icon.Envelope, color: Color.Red },
-  calendar: { label: "Calendar", icon: Icon.Calendar, color: Color.Green },
-};
+/** Official app icons, bundled in assets/ so nothing is fetched (or leaked) at runtime. */
+const BRAND_ICONS = {
+  jira: "jira.png",
+  slack: "slack.png",
+  gmail: "gmail.png",
+  calendar: "google-calendar.png",
+} as const;
 
-function sourceOf(task: Task) {
-  return SOURCES[task.source] ?? { label: task.source, icon: Icon.Circle, color: Color.SecondaryText };
-}
-
-const WORKFLOW_LABELS: Record<WorkflowSource, string> = {
-  saved: "Saved in Raycast",
-  example: "Built-in example (⌘E to set yours)",
+const SOURCE_ICONS: Record<TaskSource, string> = {
+  jira: BRAND_ICONS.jira,
+  bau: BRAND_ICONS.jira,
+  slack: BRAND_ICONS.slack,
+  email: BRAND_ICONS.gmail,
+  calendar: BRAND_ICONS.calendar,
 };
 
 /**
- * Details are written into the markdown rather than Raycast's metadata panel: the panel is
- * pinned to the bottom with its own scroll, while markdown makes the whole right half one
- * scrolling page.
+ * The icon of the app the link opens, so ↵ takes you where the icon says. Judged by the link
+ * first: a BAU item can be a Jira ticket or a Slack canvas. The source is the fallback.
  */
-function detailLines(fields: [label: string, value: string | undefined][]): string {
-  return fields
-    .filter(([, value]) => value)
-    .map(([label, value]) => `**${label}**  ${value}`)
-    .join("\n\n");
-}
-
-/** "[example.slack.com/archives/…](<https://…>)": readable text, the full URL as the target. */
-function markdownLink(url: string): string {
-  const bare = url.replace(/^https?:\/\//, "");
-  const text = (bare.length > 60 ? `${bare.slice(0, 57)}…` : bare).replace(/[[\]]/g, "\\$&");
-  return `[${text}](<${url}>)`;
+function iconFor(task: Task): string {
+  let host = "";
+  try {
+    host = new URL(task.url).hostname;
+  } catch {
+    // Not a URL — fall back to the source.
+  }
+  if (host.endsWith(".atlassian.net")) return BRAND_ICONS.jira;
+  if (host === "slack.com" || host.endsWith(".slack.com")) return BRAND_ICONS.slack;
+  if (host === "mail.google.com") return BRAND_ICONS.gmail;
+  if (host === "calendar.google.com") return BRAND_ICONS.calendar;
+  return SOURCE_ICONS[task.source] ?? BRAND_ICONS.jira;
 }
 
 /** Keeps "in 9 min" honest while the list sits open between runs. */
@@ -178,7 +176,7 @@ export default function Command() {
     const when = `${formatTimeRange(meeting.startMs, meeting.endMs)} · ${formatStartsIn(meeting.startMs, now)}`;
     return (
       <List.Item
-        icon={{ source: virtual ? Icon.Video : Icon.TwoPeople, tintColor: Color.Green }}
+        icon={BRAND_ICONS.calendar}
         title={meeting.title}
         subtitle={when}
         detail={
@@ -186,13 +184,10 @@ export default function Command() {
             markdown={[
               `## ${meeting.title}`,
               `**${when}**`,
+              virtual ? "Video call. Press ↵ to join." : "",
+              meeting.location ? `At ${meeting.location}.` : virtual ? "" : "No location given.",
+              meeting.attendees.length > 0 ? `With ${meeting.attendees.join(", ")}.` : "",
               meeting.notes,
-              "---",
-              detailLines([
-                ["Join", virtual ? markdownLink(meeting.url) : undefined],
-                [virtual ? "Location" : "Where", meeting.location || (virtual ? undefined : "No location given")],
-                ["With", meeting.attendees.join(", ")],
-              ]),
             ]
               .filter(Boolean)
               .join("\n\n")}
@@ -222,27 +217,14 @@ export default function Command() {
     );
   }
 
-  /** A task's detail shows only the task: what, why, where it came from and its link. */
+  /** A task's detail is just the task: what and why. The icon shows the source; ↵ opens the link. */
   function taskItem(task: Task, key: string) {
-    const source = sourceOf(task);
     return (
       <List.Item
         key={key}
-        icon={{ source: source.icon, tintColor: source.color }}
+        icon={iconFor(task)}
         title={task.title}
-        detail={
-          <List.Item.Detail
-            markdown={[
-              `## ${task.title}`,
-              task.why,
-              "---",
-              detailLines([
-                ["Source", source.label],
-                ["Link", isLink(task.url) ? markdownLink(task.url) : undefined],
-              ]),
-            ].join("\n\n")}
-          />
-        }
+        detail={<List.Item.Detail markdown={`## ${task.title}\n\n${task.why}`} />}
         actions={
           <ActionPanel>
             <ActionPanel.Section>
@@ -286,16 +268,9 @@ export default function Command() {
                   progress.workflow === "example"
                     ? "No workflow saved yet, so this run uses the built-in example. Press **⌘E** to set your own."
                     : "",
-                  "---",
-                  detailLines([
-                    ["Model", modelName(prefs.model)],
-                    ["Effort", prefs.effort],
-                    ["Workflow", WORKFLOW_LABELS[progress.workflow]],
-                    [
-                      "Unknown placeholders",
-                      progress.unknownPlaceholders.length > 0 ? progress.unknownPlaceholders.join(", ") : undefined,
-                    ],
-                  ]),
+                  progress.unknownPlaceholders.length > 0
+                    ? `Your workflow has unknown placeholders, sent to Claude as-is: ${progress.unknownPlaceholders.join(", ")}. Fix them with **⌘E**.`
+                    : "",
                 ]
                   .filter(Boolean)
                   .join("\n\n")}
