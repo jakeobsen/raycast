@@ -261,8 +261,9 @@ ${workflow}
 
 Then answer:
 - onBau: whether I'm on BAU today, as the steps above define it (false if they don't say).
-- upcomingMeetings: my timed meetings that start later today, soonest first, at most 3.
-  Leave out all-day events and meetings I declined. For each:
+- upcomingMeetings: my timed meetings today that haven't ended yet (including one in
+  progress), soonest first, at most 3. Leave out all-day events, meetings that have
+  already ended, and meetings I declined. For each:
   - title; start and end as ISO 8601 with offset, copied from the event.
   - url: the video call link (conference data, hangoutLink, or a Zoom, Meet or Teams
     link in the location or description), or "" if the meeting is in person.

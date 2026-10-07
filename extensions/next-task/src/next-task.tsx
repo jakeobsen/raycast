@@ -245,7 +245,8 @@ export default function Command() {
 
   const answer = result?.answer;
   const meetings = timedMeetings(answer?.upcomingMeetings);
-  const meeting = soonMeeting(meetings, now, prefs.meetingWindowMinutes);
+  // Judge against the real clock, not the last tick, so a meeting is gone the moment it ends.
+  const meeting = soonMeeting(meetings, Date.now(), prefs.meetingWindowMinutes);
 
   return (
     <List
