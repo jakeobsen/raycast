@@ -1,0 +1,93 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "next-task",
+  "title": "Next Task",
+  "description": "Ask Claude what to work on next, based on your calendar, Jira board, Slack and Gmail.",
+  "icon": "extension-icon.png",
+  "author": "jakeobsen",
+  "license": "MIT",
+  "categories": ["Productivity"],
+  "commands": [
+    {
+      "name": "next-task",
+      "title": "Next Task",
+      "description": "Runs Claude Code headless to pick the single most useful thing to work on next, with alternatives.",
+      "mode": "view",
+      "icon": "extension-icon.png"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "model",
+      "type": "dropdown",
+      "required": false,
+      "default": "claude-opus-5-5",
+      "title": "Model",
+      "description": "Opus picked better tasks in side-by-side runs; Sonnet is faster and cheaper but cut corners.",
+      "data": [
+        { "title": "Opus 5.5", "value": "claude-opus-5-5" },
+        { "title": "Sonnet 5.5", "value": "claude-sonnet-5-5" },
+        { "title": "Fable 5.1", "value": "claude-fable-5-1" }
+      ]
+    },
+    {
+      "name": "effort",
+      "type": "dropdown",
+      "required": false,
+      "default": "medium",
+      "title": "Effort",
+      "description": "Higher effort reads more carefully but takes longer and costs more.",
+      "data": [
+        { "title": "Low", "value": "low" },
+        { "title": "Medium", "value": "medium" },
+        { "title": "High", "value": "high" },
+        { "title": "Extra High", "value": "xhigh" }
+      ]
+    },
+    {
+      "name": "reuseMinutes",
+      "type": "textfield",
+      "required": false,
+      "default": "30",
+      "title": "Reuse Answer For (Minutes)",
+      "description": "Opening the command within this many minutes of the last answer shows it instead of asking again. ⌘R always asks again."
+    },
+    {
+      "name": "resolvedEmojis",
+      "type": "textfield",
+      "required": false,
+      "default": "white_check_mark, heavy_check_mark",
+      "title": "Resolved Reactions",
+      "description": "Slack reactions (comma-separated, colons optional) that mark a request as done. Inserted wherever the workflow says {{resolvedReactions}}."
+    },
+    {
+      "name": "claudePath",
+      "type": "textfield",
+      "required": false,
+      "default": "~/.local/bin/claude",
+      "title": "Claude CLI Path",
+      "description": "Absolute path to the claude binary. Raycast does not see your shell PATH, so a bare `claude` will not resolve."
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.12",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "^22.14.0",
+    "@types/react": "^18.3.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.8.3",
+    "react": "^18.3.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --relaxed --fix",
+    "lint": "ray lint --relaxed",
+    "lint-publish": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
