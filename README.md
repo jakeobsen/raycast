@@ -23,6 +23,9 @@ make dev-better-visual-studio-code-project-manager
 
 make dev-scratch
 # → open Raycast, search for "Create Scratch" or "Scratch Folders"
+
+make dev-next-task
+# → open Raycast, search for "Next Task"
 ```
 
 Press Ctrl+C to stop the dev server.
@@ -70,6 +73,7 @@ Alternatively, copy `extensions/hello-world/` to `extensions/<new-name>/` and ed
 - **[scratch](extensions/scratch/)** — disposable working folders.
   - **Create Scratch** — makes `~/scratch/<random-name>` (optionally prefixed with a label you type) and opens it in VS Code.
   - **Scratch Folders** — browses them in active/stale sections (staleness = newest mtime anywhere inside), with the same shortcuts as the VS Code extension above (`⌘T` terminal, `⌘G` lazygit, `⌘⇧G` git remote, `⌘F` Finder, `⌘O` open with, `⌘.`/`⌘⇧.` copy) plus `⌘N` new folder, `⌃X` remove, and `⌘⇧X` to trash everything untouched for 7+ days.
+- **[next-task](extensions/next-task/)** — asks Claude Code (headless, read-only) what to work on next from your calendar, Jira board, Slack and Gmail. Defaults to Opus 5.5; runs keep going if you close Raycast.
 
 ## "Install into Raycast" — what's happening
 
@@ -91,7 +95,8 @@ Raycast has no standalone `install` CLI and no `raycast://` deep link for progra
     │   ├── README.md
     │   └── CHANGELOG.md
     ├── better-visual-studio-code-project-manager/     fork of the upstream Raycast extension with lazygit + git-remote-in-browser actions
-    └── scratch/                                       disposable ~/scratch folders + stale-folder cleanup
+    ├── scratch/                                       disposable ~/scratch folders + stale-folder cleanup
+    └── next-task/                                     asks Claude Code what to work on next
 ```
 
 No root `package.json`, no npm/pnpm/yarn workspaces. Each extension has its own `node_modules`. This is intentional — every extension stays self-contained and portable.
