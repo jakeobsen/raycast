@@ -36,6 +36,11 @@ export type StoredResult = {
   costUsd: number;
   /** Tool calls the permission layer refused — non-empty means the prompt reached for a write. */
   denied: string[];
+  /**
+   * Tool results too large to reach the model (e.g. "a Slack channel"), so the answer may have
+   * missed something. Missing on answers saved before this was tracked.
+   */
+  unreadable?: string[];
   /** Whether the run used the saved workflow or fell back to the example. */
   workflow: WorkflowSource;
   finishedAt: number;
@@ -118,6 +123,10 @@ function claudeEnv(): NodeJS.ProcessEnv {
     // are often missing from the run (1 in 3 loaded in testing; 3 in 3 with these set).
     MCP_CONNECTION_NONBLOCKING: "false",
     MCP_TIMEOUT: "30000",
+    // Past this, Claude Code saves a tool result to a file instead of handing it to the model,
+    // and with file tools disabled the model can't read it back. A 100-message Slack channel
+    // read (~59k characters) went over the default.
+    MAX_MCP_OUTPUT_TOKENS: "80000",
   };
 }
 
@@ -259,7 +268,7 @@ function mainModel(usage: ResultEvent["modelUsage"]): string {
   return entries.reduce((a, b) => ((b[1].costUSD ?? 0) > (a[1].costUSD ?? 0) ? b : a))[0];
 }
 
-function finish(event: ResultEvent, meta: RunMeta) {
+function finish(event: ResultEvent, meta: RunMeta, unreadable: string[]) {
   if (event.is_error || event.subtype !== "success" || !event.structured_output) {
     fail(event.result?.trim() || `Claude stopped without an answer (${event.subtype ?? "unknown"}).`);
     return;
@@ -270,6 +279,7 @@ function finish(event: ResultEvent, meta: RunMeta) {
     durationMs: event.duration_ms ?? 0,
     costUsd: event.total_cost_usd ?? 0,
     denied: (event.permission_denials ?? []).map((denial) => denial.tool_name ?? "unknown"),
+    unreadable,
     workflow: meta.workflow,
     finishedAt: Date.now(),
   };
@@ -290,6 +300,30 @@ function describeTool(name: string): string {
   return "Working";
 }
 
+/** What a tool reads, for the "couldn't read" note: "a Slack channel", "a Jira search". */
+function describeSource(name: string): string {
+  const tool = name.split("__").pop() ?? name;
+  if (tool === "list_events" || tool === "get_event") return "your calendar";
+  if (tool === "searchJiraIssuesUsingJql") return "a Jira search";
+  if (tool === "getJiraIssue") return "a Jira ticket";
+  if (tool === "slack_read_canvas") return "a Slack canvas";
+  if (tool === "slack_read_channel") return "a Slack channel";
+  if (tool === "slack_read_thread") return "a Slack thread";
+  if (tool.startsWith("slack_search")) return "a Slack search";
+  if (tool === "search_threads") return "a Gmail search";
+  if (tool === "get_thread") return "an email thread";
+  return tool || "a tool result";
+}
+
+/** Claude Code's wording when a tool result is too big and gets saved to a file instead. */
+const OVERSIZED_RESULT = /exceeds maximum allowed tokens/i;
+
+function toolResultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((part) => (typeof part?.text === "string" ? part.text : "")).join("");
+  return "";
+}
+
 /**
  * Follows the current run's stream file. Each poll reads only the bytes appended since the
  * last one; when the run ends it records the answer (or the error) and returns undefined.
@@ -303,6 +337,9 @@ export class RunWatcher {
   private label = "Waiting for connectors";
   private final?: ResultEvent;
   private missing?: string[];
+  /** tool_use id → tool name, to say which result was too large. */
+  private toolNames = new Map<string, string>();
+  private unreadable: string[] = [];
 
   private reset(startedAt: number) {
     this.startedAt = startedAt;
@@ -313,6 +350,8 @@ export class RunWatcher {
     this.label = "Waiting for connectors";
     this.final = undefined;
     this.missing = undefined;
+    this.toolNames = new Map();
+    this.unreadable = [];
   }
 
   poll(): RunProgress | undefined {
@@ -322,7 +361,7 @@ export class RunWatcher {
 
     this.readNew();
     if (this.final) {
-      finish(this.final, meta);
+      finish(this.final, meta, this.unreadable);
       return undefined;
     }
     if (this.missing && this.missing.length > 0) {
@@ -334,7 +373,7 @@ export class RunWatcher {
     if (!isAlive(meta.pid)) {
       // It may have written the result line between our read and its exit.
       this.readNew();
-      if (this.final) finish(this.final, meta);
+      if (this.final) finish(this.final, meta, this.unreadable);
       else fail(lastLines(stderrPath()) || "Claude exited without an answer.");
       return undefined;
     }
@@ -393,6 +432,13 @@ export class RunWatcher {
         if (block.type !== "tool_use") continue;
         this.steps++;
         this.label = describeTool(block.name ?? "");
+        if (block.id) this.toolNames.set(block.id, block.name ?? "");
+      }
+    } else if (event.type === "user") {
+      // Tool results come back as user messages. One that was too big never reached the model.
+      for (const block of event.message?.content ?? []) {
+        if (block.type !== "tool_result" || !OVERSIZED_RESULT.test(toolResultText(block.content))) continue;
+        this.unreadable.push(describeSource(this.toolNames.get(block.tool_use_id) ?? ""));
       }
     } else if (event.type === "result") {
       this.final = event;

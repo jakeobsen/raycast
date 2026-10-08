@@ -244,6 +244,12 @@ export default function Command() {
   }
 
   const answer = result?.answer;
+  const unreadable = result?.unreadable ?? [];
+  // A result too large for the model means the answer was made from a partial picture; say so.
+  const unreadableNote =
+    unreadable.length > 0
+      ? `Claude couldn't read ${unreadable.length === 1 ? "one result" : `${unreadable.length} results`} because ${unreadable.length === 1 ? "it was" : "they were"} too large (${[...new Set(unreadable)].join(", ")}), so this answer may have missed something. Ask again with ⌘R.`
+      : undefined;
   const meetings = timedMeetings(answer?.upcomingMeetings);
   // Judge against the real clock, not the last tick, so a meeting is gone the moment it ends.
   const meeting = soonMeeting(meetings, Date.now(), prefs.meetingWindowMinutes);
@@ -312,8 +318,16 @@ export default function Command() {
               {answer.alternatives.map((task, index) => taskItem(task, `alternative-${index}`))}
             </List.Section>
           )}
-          {answer.flags.length > 0 && (
+          {(answer.flags.length > 0 || unreadableNote) && (
             <List.Section title="Notes">
+              {unreadableNote && (
+                <List.Item
+                  icon={{ source: Icon.Warning, tintColor: Color.Orange }}
+                  title={unreadableNote}
+                  detail={<List.Item.Detail markdown={unreadableNote} />}
+                  actions={<ActionPanel>{commonActions()}</ActionPanel>}
+                />
+              )}
               {answer.flags.map((flag, index) => (
                 <List.Item
                   key={`flag-${index}`}
