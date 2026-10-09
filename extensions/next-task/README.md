@@ -46,9 +46,9 @@ Each item carries the official icon of where `↵` takes you — Jira, Slack, Gm
 
 ## Save for later
 
-`⌘S` on a task or note saves it for later (you can shorten the title first). Saved items sit in a **Saved for Later** section until you let them go with `⌘⌫` — nothing disappears on its own.
+`⌘S` on a task or note saves it for later exactly as it is: title, link and Claude's reason. Saved items sit in a **Saved for Later** section, showing that reason, Claude's latest take on where it stands, and when you saved it, until you let them go with `⌘⌫` — nothing disappears on its own.
 
-Claude sees the saved list (titles, links and dates only) and, for each item, reports where it stands: **Looks done** when its ticket or thread is finished, **Waiting** when it's on someone else. It won't push a saved item as your next task just because it's saved, only when something changed (someone is now blocked on it) or when nothing more urgent is waiting and you have time before your next meeting.
+Claude sees the saved list — titles, links and dates only; the saved reason stays out, since Claude re-checks each item live anyway — and, for each item, reports where it stands: **Looks done** when its ticket or thread is finished, **Waiting** when it's on someone else. It won't push a saved item as your next task just because it's saved, only when something changed (someone is now blocked on it) or when nothing more urgent is waiting and you have time before your next meeting.
 
 Switch it off with the *Save for Later* preference: the actions, the section and the list sent to Claude all go away, but your saved items are kept for when you switch it back on.
 

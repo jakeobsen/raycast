@@ -5,9 +5,8 @@ import { EditWorkflow } from "./edit-workflow";
 import { getPreferences } from "./lib/prefs";
 import { renderWorkflow, type Meeting, type SavedStatus, type Task, type TaskSource } from "./lib/prompt";
 import { loadError, loadResult, RunWatcher, startRun, stopRun, type RunProgress } from "./lib/run";
-import { findSaved, letGo, loadSaved, type SavedItem } from "./lib/saved-store";
+import { findSaved, letGo, loadSaved, saveForLater, type SavedItem } from "./lib/saved-store";
 import { loadSavedWorkflow } from "./lib/workflow-store";
-import { SaveForLater } from "./save-for-later";
 
 /** The stream file is cheap to tail, and a second is fine-grained enough for a run that takes a minute. */
 const POLL_MS = 1000;
@@ -194,8 +193,14 @@ export default function Command() {
     await showToast({ style: Toast.Style.Success, title: "Let go", message: item.title });
   }
 
-  /** Save for Later, or Let Go if it's already saved. Nothing at all while the feature is off. */
-  function saveActions(title: string, url: string) {
+  async function save(title: string, url: string, why: string) {
+    await saveForLater(title, url, why);
+    reloadSaved();
+    await showToast({ style: Toast.Style.Success, title: "Saved for later", message: title });
+  }
+
+  /** Save for Later (as-is, no editing), or Let Go if it's already saved. Nothing while the feature is off. */
+  function saveActions(title: string, url: string, why: string) {
     if (!prefs.saveForLater) return null;
     const existing = findSaved(saved, url, title);
     return (
@@ -208,11 +213,11 @@ export default function Command() {
             onAction={() => letGoOf(existing)}
           />
         ) : (
-          <Action.Push
-            title="Save for Later…"
+          <Action
+            title="Save for Later"
             icon={Icon.Bookmark}
             shortcut={Keyboard.Shortcut.Common.Save}
-            target={<SaveForLater title={title} url={url} onSaved={reloadSaved} />}
+            onAction={() => save(title, url, why)}
           />
         )}
       </ActionPanel.Section>
@@ -229,7 +234,12 @@ export default function Command() {
         accessories={tag ? [{ tag }] : []}
         detail={
           <List.Item.Detail
-            markdown={[`## ${item.title}`, status?.note, `Saved ${formatAge(item.savedAt, now)}.`]
+            markdown={[
+              `## ${item.title}`,
+              item.why,
+              status?.note ? `Now: ${status.note}` : "",
+              `Saved ${formatAge(item.savedAt, now)}.`,
+            ]
               .filter(Boolean)
               .join("\n\n")}
           />
@@ -243,11 +253,6 @@ export default function Command() {
                 icon={Icon.XMarkCircle}
                 shortcut={{ modifiers: ["cmd"], key: "backspace" }}
                 onAction={() => letGoOf(item)}
-              />
-              <Action.Push
-                title="Rename…"
-                icon={Icon.Pencil}
-                target={<SaveForLater title={item.title} url={item.url} onSaved={reloadSaved} />}
               />
             </ActionPanel.Section>
             {commonActions()}
@@ -324,7 +329,7 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
               />
             </ActionPanel.Section>
-            {saveActions(task.title, isLink(task.url) ? task.url : "")}
+            {saveActions(task.title, isLink(task.url) ? task.url : "", task.why)}
             {commonActions()}
           </ActionPanel>
         }
@@ -431,7 +436,7 @@ export default function Command() {
                       <ActionPanel.Section>
                         <Action.CopyToClipboard title="Copy Note" content={flag} />
                       </ActionPanel.Section>
-                      {saveActions(flag, "")}
+                      {saveActions(flag, "", "")}
                       {commonActions()}
                     </ActionPanel>
                   }

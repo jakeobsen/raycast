@@ -9,5 +9,5 @@
 - Each run's JSON (event stream, meta, outcome) is kept for 7 days in the support folder for debugging.
 - Read-only: no built-in tools, an allowlist of MCP read tools, and an explicit deny list for every write tool on the connected servers.
 - Stops early if the Calendar, Slack, Gmail or Atlassian connector didn't load, and stops runs still going after 10 minutes.
-- Save for Later (toggleable): save tasks and notes with `⌘S`, keep them until you let go with `⌘⌫`. Claude checks where each stands ("Looks done", "Waiting") and suggests one only when something changed or nothing more urgent is waiting.
+- Save for Later (toggleable): save tasks and notes as they are with `⌘S` (the reason is kept for you, not sent back to Claude), keep them until you let go with `⌘⌫`. Claude checks where each stands ("Looks done", "Waiting") and suggests one only when something changed or nothing more urgent is waiting.
 - Preferences: model, effort, how long to reuse an answer, meeting window, save for later, resolved reactions, path to the claude binary.
