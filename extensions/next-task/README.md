@@ -36,11 +36,21 @@ You can close Raycast mid-run. Claude keeps going in the background, and the ans
 | `⌘⇧.` | Copy task (title, reason, link) |
 | `⌘R` | Ask again |
 | `⌘E` | Edit workflow |
+| `⌘S` | Save a task or note for later |
+| `⌘⌫` | Let go of a saved item |
 | `⌃X` | Stop the current run |
 
 When your next meeting starts within *Show Meetings Starting Within* (default 60 min), it's shown at the top with a live countdown until it ends. A virtual meeting's `↵` joins it (Zoom, Meet or Teams link); an in-person one shows the time, place, attendees and what it's about.
 
 Each item carries the official icon of where `↵` takes you — Jira, Slack, Gmail or Google Calendar, judged from the link — and the right-hand side shows just the title and the reason. The icons are bundled, so nothing is fetched at runtime.
+
+## Save for later
+
+`⌘S` on a task or note saves it for later (you can shorten the title first). Saved items sit in a **Saved for Later** section until you let them go with `⌘⌫` — nothing disappears on its own.
+
+Claude sees the saved list (titles, links and dates only) and, for each item, reports where it stands: **Looks done** when its ticket or thread is finished, **Waiting** when it's on someone else. It won't push a saved item as your next task just because it's saved, only when something changed (someone is now blocked on it) or when nothing more urgent is waiting and you have time before your next meeting.
+
+Switch it off with the *Save for Later* preference: the actions, the section and the list sent to Claude all go away, but your saved items are kept for when you switch it back on.
 
 ## Read-only by construction
 
@@ -56,6 +66,7 @@ For debugging, each run's JSON is kept for 7 days in `history/<start time>-<outc
 | Effort | Medium | Low / Medium / High / Extra High. |
 | Reuse Answer For (Minutes) | `30` | `0` asks every time the command opens. |
 | Show Meetings Starting Within (Minutes) | `60` | Your next meeting appears at the top once it's this close, and stays until it ends. |
+| Save for Later | enabled | Turns the Save for Later feature on or off. Saved items are kept either way. |
 | Resolved Reactions | `white_check_mark, heavy_check_mark` | Slack reactions that mark a request done, inserted at `{{resolvedReactions}}`. Comma-separated, colons optional. |
 | Claude CLI Path | `~/.local/bin/claude` | Raycast doesn't see your shell `PATH`, so this has to be a real path. |
 

@@ -61,6 +61,15 @@
       "description": "Your next meeting is shown at the top when it starts within this many minutes, and stays until it ends."
     },
     {
+      "name": "saveForLater",
+      "type": "checkbox",
+      "required": false,
+      "default": true,
+      "title": "Save for Later",
+      "label": "enabled",
+      "description": "Save tasks and notes to come back to. Claude checks where each one stands and may suggest one when nothing more urgent is waiting. Switching this off hides it and stops sending the list to Claude; saved items are kept."
+    },
+    {
       "name": "resolvedEmojis",
       "type": "textfield",
       "required": false,

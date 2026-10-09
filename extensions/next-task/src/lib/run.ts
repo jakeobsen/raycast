@@ -19,6 +19,7 @@ import { join } from "path";
 import { StringDecoder } from "string_decoder";
 import type { NextTaskPreferences } from "./prefs";
 import { buildArgs, REQUIRED_SERVERS, type Answer, type Workflow, type WorkflowSource } from "./prompt";
+import type { SavedItem } from "./saved-store";
 
 /**
  * A run is a detached `claude -p` process writing stream-json to a file in the support
@@ -131,7 +132,7 @@ function claudeEnv(): NodeJS.ProcessEnv {
 }
 
 /** Start a run unless one is already going. Throws if the CLI can't be launched. */
-export function startRun(prefs: NextTaskPreferences, workflow: Workflow): void {
+export function startRun(prefs: NextTaskPreferences, workflow: Workflow, saved: SavedItem[]): void {
   const meta = readMeta();
   if (meta && isAlive(meta.pid)) return;
   if (!existsSync(prefs.claudePath)) {
@@ -149,7 +150,7 @@ export function startRun(prefs: NextTaskPreferences, workflow: Workflow): void {
   try {
     // detached puts claude in its own process group, so stopRun can signal the whole group
     // (claude plus any MCP helpers it spawned) and closing Raycast doesn't take it down.
-    const child = spawn(prefs.claudePath, buildArgs(prefs, now, workflow), {
+    const child = spawn(prefs.claudePath, buildArgs(prefs, now, workflow, saved), {
       cwd: homedir(),
       detached: true,
       stdio: ["ignore", out, err],

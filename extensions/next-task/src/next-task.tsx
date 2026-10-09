@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatAge, formatElapsed, formatStartsIn, formatTimeRange, isLink } from "./lib/format";
 import { EditWorkflow } from "./edit-workflow";
 import { getPreferences } from "./lib/prefs";
-import { renderWorkflow, type Meeting, type Task, type TaskSource } from "./lib/prompt";
+import { renderWorkflow, type Meeting, type SavedStatus, type Task, type TaskSource } from "./lib/prompt";
 import { loadError, loadResult, RunWatcher, startRun, stopRun, type RunProgress } from "./lib/run";
+import { findSaved, letGo, loadSaved, type SavedItem } from "./lib/saved-store";
 import { loadSavedWorkflow } from "./lib/workflow-store";
+import { SaveForLater } from "./save-for-later";
 
 /** The stream file is cheap to tail, and a second is fine-grained enough for a run that takes a minute. */
 const POLL_MS = 1000;
@@ -26,23 +28,31 @@ const SOURCE_ICONS: Record<TaskSource, string> = {
   calendar: BRAND_ICONS.calendar,
 };
 
-/**
- * The icon of the app the link opens, so ↵ takes you where the icon says. Judged by the link
- * first: a BAU item can be a Jira ticket or a Slack canvas. The source is the fallback.
- */
-function iconFor(task: Task): string {
+/** The icon of the app a link opens, so ↵ takes you where the icon says; undefined if we can't tell. */
+function brandIconFor(url: string): string | undefined {
   let host = "";
   try {
-    host = new URL(task.url).hostname;
+    host = new URL(url).hostname;
   } catch {
-    // Not a URL — fall back to the source.
+    return undefined;
   }
   if (host.endsWith(".atlassian.net")) return BRAND_ICONS.jira;
   if (host === "slack.com" || host.endsWith(".slack.com")) return BRAND_ICONS.slack;
   if (host === "mail.google.com") return BRAND_ICONS.gmail;
   if (host === "calendar.google.com") return BRAND_ICONS.calendar;
-  return SOURCE_ICONS[task.source] ?? BRAND_ICONS.jira;
+  return undefined;
 }
+
+/** Judged by the link first (a BAU item can be a Jira ticket or a Slack canvas), then the source. */
+function iconFor(task: Task): string {
+  return brandIconFor(task.url) ?? SOURCE_ICONS[task.source] ?? BRAND_ICONS.jira;
+}
+
+const SAVED_STATUS_TAGS: Record<SavedStatus["status"], { value: string; color: Color } | undefined> = {
+  done: { value: "Looks done", color: Color.Green },
+  waiting: { value: "Waiting", color: Color.Orange },
+  open: undefined,
+};
 
 /** Keeps "in 9 min" honest while the list sits open between runs. */
 const CLOCK_TICK_MS = 30_000;
@@ -82,7 +92,14 @@ export default function Command() {
   const [result, setResult] = useState(loadResult);
   const [error, setError] = useState(loadError);
   const [now, setNow] = useState(Date.now);
+  const [saved, setSaved] = useState<SavedItem[]>([]);
   const running = progress !== undefined;
+
+  const reloadSaved = useCallback(() => {
+    loadSaved().then(setSaved);
+  }, []);
+
+  useEffect(reloadSaved, [reloadSaved]);
 
   const refresh = useCallback(() => {
     const next = watcher.poll();
@@ -104,7 +121,7 @@ export default function Command() {
           message: `${workflow.unknown.join(", ")} sent to Claude as-is. Fix them with ⌘E.`,
         });
       }
-      startRun(prefs, workflow);
+      startRun(prefs, workflow, prefs.saveForLater ? await loadSaved() : []);
     } catch (startError) {
       await showToast({
         style: Toast.Style.Failure,
@@ -171,6 +188,75 @@ export default function Command() {
     );
   }
 
+  async function letGoOf(item: SavedItem) {
+    await letGo(item.id);
+    reloadSaved();
+    await showToast({ style: Toast.Style.Success, title: "Let go", message: item.title });
+  }
+
+  /** Save for Later, or Let Go if it's already saved. Nothing at all while the feature is off. */
+  function saveActions(title: string, url: string) {
+    if (!prefs.saveForLater) return null;
+    const existing = findSaved(saved, url, title);
+    return (
+      <ActionPanel.Section>
+        {existing ? (
+          <Action
+            title="Let Go"
+            icon={Icon.XMarkCircle}
+            shortcut={{ modifiers: ["cmd"], key: "backspace" }}
+            onAction={() => letGoOf(existing)}
+          />
+        ) : (
+          <Action.Push
+            title="Save for Later…"
+            icon={Icon.Bookmark}
+            shortcut={Keyboard.Shortcut.Common.Save}
+            target={<SaveForLater title={title} url={url} onSaved={reloadSaved} />}
+          />
+        )}
+      </ActionPanel.Section>
+    );
+  }
+
+  function savedItem(item: SavedItem, status: SavedStatus | undefined) {
+    const tag = status ? SAVED_STATUS_TAGS[status.status] : undefined;
+    return (
+      <List.Item
+        key={item.id}
+        icon={brandIconFor(item.url) ?? Icon.Bookmark}
+        title={item.title}
+        accessories={tag ? [{ tag }] : []}
+        detail={
+          <List.Item.Detail
+            markdown={[`## ${item.title}`, status?.note, `Saved ${formatAge(item.savedAt, now)}.`]
+              .filter(Boolean)
+              .join("\n\n")}
+          />
+        }
+        actions={
+          <ActionPanel>
+            <ActionPanel.Section>
+              {isLink(item.url) && <Action.OpenInBrowser url={item.url} />}
+              <Action
+                title="Let Go"
+                icon={Icon.XMarkCircle}
+                shortcut={{ modifiers: ["cmd"], key: "backspace" }}
+                onAction={() => letGoOf(item)}
+              />
+              <Action.Push
+                title="Rename…"
+                icon={Icon.Pencil}
+                target={<SaveForLater title={item.title} url={item.url} onSaved={reloadSaved} />}
+              />
+            </ActionPanel.Section>
+            {commonActions()}
+          </ActionPanel>
+        }
+      />
+    );
+  }
+
   function meetingItem(meeting: TimedMeeting) {
     const virtual = isLink(meeting.url);
     const when = `${formatTimeRange(meeting.startMs, meeting.endMs)} · ${formatStartsIn(meeting.startMs, now)}`;
@@ -219,11 +305,13 @@ export default function Command() {
 
   /** A task's detail is just the task: what and why. The icon shows the source; ↵ opens the link. */
   function taskItem(task: Task, key: string) {
+    const isSaved = prefs.saveForLater && !!findSaved(saved, task.url, task.title);
     return (
       <List.Item
         key={key}
         icon={iconFor(task)}
         title={task.title}
+        accessories={isSaved ? [{ icon: Icon.Bookmark, tooltip: "Saved for later" }] : []}
         detail={<List.Item.Detail markdown={`## ${task.title}\n\n${task.why}`} />}
         actions={
           <ActionPanel>
@@ -236,6 +324,7 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
               />
             </ActionPanel.Section>
+            {saveActions(task.title, isLink(task.url) ? task.url : "")}
             {commonActions()}
           </ActionPanel>
         }
@@ -253,11 +342,14 @@ export default function Command() {
   const meetings = timedMeetings(answer?.upcomingMeetings);
   // Judge against the real clock, not the last tick, so a meeting is gone the moment it ends.
   const meeting = soonMeeting(meetings, Date.now(), prefs.meetingWindowMinutes);
+  // Saved items are yours, not part of an answer, so they show even before the first answer.
+  const showSaved = prefs.saveForLater && saved.length > 0;
+  const savedStatusFor = (item: SavedItem) => answer?.savedStatus?.find((entry) => entry.id === item.id);
 
   return (
     <List
       isLoading={running}
-      isShowingDetail={running || !!error || !!answer}
+      isShowingDetail={running || !!error || !!answer || showSaved}
       navigationTitle="Next Task"
       searchBarPlaceholder="Filter tasks and notes"
     >
@@ -339,6 +431,7 @@ export default function Command() {
                       <ActionPanel.Section>
                         <Action.CopyToClipboard title="Copy Note" content={flag} />
                       </ActionPanel.Section>
+                      {saveActions(flag, "")}
                       {commonActions()}
                     </ActionPanel>
                   }
@@ -347,6 +440,12 @@ export default function Command() {
             </List.Section>
           )}
         </>
+      )}
+
+      {showSaved && (
+        <List.Section title="Saved for Later">
+          {saved.map((item) => savedItem(item, savedStatusFor(item)))}
+        </List.Section>
       )}
 
       <List.EmptyView

@@ -10,6 +10,7 @@ type RawPreferences = {
   effort?: Effort;
   reuseMinutes?: string;
   meetingWindowMinutes?: string;
+  saveForLater?: boolean;
   resolvedEmojis?: string;
   claudePath?: string;
 };
@@ -19,6 +20,8 @@ export type NextTaskPreferences = {
   effort: Effort;
   reuseMinutes: number;
   meetingWindowMinutes: number;
+  /** Save for Later: the actions, the Saved section, and sending the saved list to Claude. */
+  saveForLater: boolean;
   resolvedEmojis: string[];
   claudePath: string;
 };
@@ -59,6 +62,7 @@ export function getPreferences(): NextTaskPreferences {
     effort: prefs.effort ?? "medium",
     reuseMinutes: parseMinutes(prefs.reuseMinutes, DEFAULT_REUSE_MINUTES),
     meetingWindowMinutes: parseMinutes(prefs.meetingWindowMinutes, DEFAULT_MEETING_WINDOW_MINUTES),
+    saveForLater: prefs.saveForLater !== false,
     resolvedEmojis: parseEmojis(prefs.resolvedEmojis),
     claudePath: resolvePath(prefs.claudePath, "~/.local/bin/claude"),
   };
