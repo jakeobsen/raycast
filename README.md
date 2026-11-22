@@ -83,6 +83,7 @@ Raycast has no standalone `install` CLI and no `raycast://` deep link for progra
 
 ```
 .
+├── LICENSE                                            GPL-3.0-or-later
 ├── Makefile
 ├── README.md
 ├── .gitignore
@@ -93,10 +94,19 @@ Raycast has no standalone `install` CLI and no `raycast://` deep link for progra
     │   ├── src/say-hello.ts
     │   ├── assets/extension-icon.png
     │   ├── README.md
-    │   └── CHANGELOG.md
+    │   ├── CHANGELOG.md
+    │   └── LICENSE
     ├── better-visual-studio-code-project-manager/     fork of the upstream Raycast extension with lazygit + git-remote-in-browser actions
     ├── scratch/                                       disposable ~/scratch folders + stale-folder cleanup
     └── next-task/                                     asks Claude Code what to work on next
 ```
 
 No root `package.json`, no npm/pnpm/yarn workspaces. Each extension has its own `node_modules`. This is intentional — every extension stays self-contained and portable.
+
+## License
+
+Copyright (C) 2026 Morten Jakobsen.
+
+This repository is licensed under the GNU General Public License, version 3 or (at your option) any later version (`GPL-3.0-or-later`). See [LICENSE](LICENSE) for the full text. Each extension carries its own copy of the license and declares `GPL-3.0-or-later` in its `package.json`, so it stays correctly licensed when lifted out of this repo.
+
+`better-visual-studio-code-project-manager` is derived from the MIT-licensed upstream Raycast extension. The upstream copyright and permission notice is preserved in [extensions/better-visual-studio-code-project-manager/LICENSE-upstream](extensions/better-visual-studio-code-project-manager/LICENSE-upstream); the combined work is distributed under the GPL as permitted by the MIT license.

@@ -47,5 +47,6 @@ Or: copy `extensions/hello-world/` and edit `package.json`.
 ## Conventions
 
 - Extension folder names are kebab-case and match the `name` field in their `package.json`.
-- Each extension keeps its own `.gitignore`, `README.md`, `CHANGELOG.md`, `tsconfig.json`, and `eslint.config.js` so it stays portable if extracted.
+- Each extension keeps its own `.gitignore`, `README.md`, `CHANGELOG.md`, `LICENSE`, `tsconfig.json`, and `eslint.config.js` so it stays portable if extracted.
+- License is `GPL-3.0-or-later` everywhere: root `LICENSE`, a copy in each extension, and the `license` field in each `package.json`. New extensions must not keep Raycast's scaffolded `"license": "MIT"`. Code derived from MIT-licensed upstream keeps the upstream notice in a `LICENSE-upstream` file next to the GPL copy.
 - Commits use conventional commits (`feat:`, `fix:`, `chore:`, `docs:`); scope with the extension name for extension-specific changes (e.g. `feat(hello-world): ...`).

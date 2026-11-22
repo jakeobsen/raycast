@@ -46,4 +46,8 @@ make lint-better-visual-studio-code-project-manager     # ray lint --relaxed (wi
 
 ## Credit
 
-All upstream design, UI structure, frecency/search, and VSCode-launching logic come from the [Raycast `visual-studio-code-project-manager` extension](https://github.com/raycast/extensions/tree/main/extensions/visual-studio-code-project-manager) by MarkusLanger and contributors. MIT licensed.
+All upstream design, UI structure, frecency/search, and VSCode-launching logic come from the [Raycast `visual-studio-code-project-manager` extension](https://github.com/raycast/extensions/tree/main/extensions/visual-studio-code-project-manager) by MarkusLanger and contributors. The upstream code is MIT licensed; its copyright and permission notice is preserved in [LICENSE-upstream](LICENSE-upstream).
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE) for the full text and [LICENSE-upstream](LICENSE-upstream) for the MIT notice covering the upstream code this fork is built on.
